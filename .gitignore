@@ -1,3 +1,4 @@
 .project
 .pydevproject
 scout.egg-info
+*.pyc
