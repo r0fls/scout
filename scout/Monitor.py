@@ -28,8 +28,12 @@ class Monitor(object):
     def _get_section(self, log_entry):
         request = log_entry['%r']
         url = request.split()[1]
-        path = urlparse(url).path
-        return path.split('/')[1]
+        path_components = urlparse(url).path.split('/')
+        if(len(path_components) < 3):
+            #this path is too short to have a section
+            return None
+        #return component after first /
+        return path_components[1]
 
     def _get_timestamp(self, log_entry):
         return datetime.strptime(log_entry['%t'], LOG_TIMESTAMP_FORMAT)
