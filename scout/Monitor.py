@@ -25,20 +25,20 @@ class Monitor(object):
         self.alert_state = False
         self.max_frequent_sections = max_frequent_sections
 
-    def get_section(self, log_entry):
+    def _get_section(self, log_entry):
         request = log_entry['%r']
         url = request.split()[1]
         path = urlparse(url).path
         return path.split('/')[1]
 
-    def get_timestamp(self, log_entry):
+    def _get_timestamp(self, log_entry):
         return datetime.strptime(log_entry['%t'], LOG_TIMESTAMP_FORMAT)
 
-    def within_alert_period(self, timestamp):
+    def _within_alert_period(self, timestamp):
         return datetime.now() - timestamp < timedelta(minutes=self.alert_period)
 
-    def check_alert_state(self):
-        self.log_cache = [entry for entry in self.log_cache if self.within_alert_period(entry[0])]
+    def _check_alert_state(self):
+        self.log_cache = [entry for entry in self.log_cache if self._within_alert_period(entry[0])]
         if len(self.log_cache) > self.alert_threshold:
             print "ALERT!!!! %d requests in %d minutes" % len(self.log_cache), self.alert_period
             self.alert_state = True
@@ -51,16 +51,16 @@ class Monitor(object):
             log_file.seek(self.log_file_position)
             for line in log_file.readlines():
                 log_entry = self.parser.parse(line)
-                self.log_cache.append((self.get_timestamp(log_entry), self.get_section(log_entry)))
+                self.log_cache.append((self._get_timestamp(log_entry), self._get_section(log_entry)))
             self.log_file_position = log_file.tell()
-        self.check_alert_state()
-        self.display_frequent_sections()
+        self._check_alert_state()
+        self._display_frequent_sections()
 
-    def within_polling_period(self, timestamp):
+    def _within_polling_period(self, timestamp):
         return datetime.now() - timestamp < timedelta(seconds=self.period)
 
-    def display_frequent_sections(self):
-        sections = [log_entry[1] for log_entry in self.log_cache if self.within_polling_period(log_entry[0])]
+    def _display_frequent_sections(self):
+        sections = [log_entry[1] for log_entry in self.log_cache if self._within_polling_period(log_entry[0])]
         most_frequent_sections = Counter(sections).most_common(self.max_frequent_sections)
         print "Most Frequent Sections"
         for section in most_frequent_sections:
