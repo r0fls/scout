@@ -2,8 +2,32 @@ import apachelog
 from urlparse import urlparse
 from collections import Counter
 from datetime import datetime, timedelta
+from mako.template import Template
 
 LOG_TIMESTAMP_FORMAT = '[%d/%b/%Y:%H:%M:%S -0400]'
+
+CONSOLE_OUTPUT_TEMPLATE = """
+
+=======================================================
+Scout Monitor - ${timestamp}
+=======================================================
+% if alerts:
+    % for alert in alerts:
+${alert}
+    % endfor
+=======================================================
+% endif
+Frequently Requested Sections this polling period:
+% for section, requests in sections:
+    % if section is None:
+No Section: ${requests}
+    % else:
+${section}: ${requests}
+    % endif
+% endfor
+=======================================================
+
+"""
 
 
 class Monitor(object):
@@ -31,7 +55,8 @@ class Monitor(object):
         current_time = datetime.now()
         self._update_log_data(current_time)
         self._check_alert_state(current_time)
-        self._display_frequent_sections(current_time)
+        sections = self._get_frequent_sections(current_time)
+        self._display_console(current_time, self._alerts, sections)
 
     def _update_log_data(self, current_time):
         #Load any new data from access log file
@@ -74,16 +99,17 @@ class Monitor(object):
     def _add_alert(self, alert):
         self._alerts.append(alert)
 
-    def _display_frequent_sections(self, current_time):
+    def _get_frequent_sections(self, current_time):
         sections = [log_entry.section for log_entry in self._log_cache if self._within_polling_period(log_entry.timestamp, current_time)]
-        most_frequent_sections = Counter(sections).most_common(self._max_frequent_sections)
-        print "Most Frequent Sections"
-        for section in most_frequent_sections:
-            print "%s: %s" % section
-        print "......."
+        return Counter(sections).most_common(self._max_frequent_sections)
 
     def _within_polling_period(self, timestamp, current_time):
         return current_time - timestamp < timedelta(seconds=self._period)
+
+    def _display_console(self, current_time, alerts, sections):
+        print Template(CONSOLE_OUTPUT_TEMPLATE).render(timestamp=current_time,
+                                                       alerts=alerts,
+                                                       sections=sections)
 
 
 class LogEntry(object):
