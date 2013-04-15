@@ -21,45 +21,45 @@ class Test(unittest.TestCase):
 
     def testGenerateNewAlert(self):
         current_time = datetime.now()
-        self.monitor.log_cache = [1, 1]
-        self.monitor.alert_state = False
+        self.monitor._log_cache = [1, 1]
+        self.monitor._alert_state = False
         self.monitor._add_alert = Mock()
 
         self.monitor._check_alert_state(current_time)
 
         self.monitor._add_alert.assert_called_with("High traffic generated an alert - hits = 2, triggered at %s" % current_time)
-        self.assertTrue(self.monitor.alert_state, "Creation of alert should set monitor's alert_state to True")
+        self.assertTrue(self.monitor._alert_state, "Creation of alert should set monitor's alert_state to True")
 
     def testNoAlertGeneratedWhenAlertStateTrue(self):
         current_time = datetime.now()
-        self.monitor.log_cache = [1, 1]
-        self.monitor.alert_state = True
+        self.monitor._log_cache = [1, 1]
+        self.monitor._alert_state = True
 
         self.monitor._check_alert_state(current_time)
 
-        self.assertEquals([], self.monitor.alerts, "Monitors alerts should be empty")
-        self.assertTrue(self.monitor.alert_state, "alert_state should remain True")
+        self.assertEquals([], self.monitor._alerts, "Monitors _alerts should be empty")
+        self.assertTrue(self.monitor._alert_state, "alert_state should remain True")
 
     def testNoAlertGeneratedWhenCacheSmallerThanThreshold(self):
         current_time = datetime.now()
-        self.monitor.log_cache = [1]
-        self.monitor.alert_state = False
+        self.monitor._log_cache = [1]
+        self.monitor._alert_state = False
 
         self.monitor._check_alert_state(current_time)
 
-        self.assertEquals([], self.monitor.alerts, "Monitors alerts should be empty")
-        self.assertFalse(self.monitor.alert_state, "alert_state should remain False")
+        self.assertEquals([], self.monitor._alerts, "Monitors _alerts should be empty")
+        self.assertFalse(self.monitor._alert_state, "alert_state should remain False")
 
     def testRecoveryMessageGeneratedWhenCacheSmallerThanThreshold(self):
         current_time = datetime.now()
-        self.monitor.log_cache = [1]
-        self.monitor.alert_state = True
+        self.monitor._log_cache = [1]
+        self.monitor._alert_state = True
         self.monitor._add_alert = Mock()
 
         self.monitor._check_alert_state(current_time)
 
         self.monitor._add_alert.assert_called_with("Traffic alert recovered at %s" % current_time)
-        self.assertFalse(self.monitor.alert_state, "alert_state should become False")
+        self.assertFalse(self.monitor._alert_state, "alert_state should become False")
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

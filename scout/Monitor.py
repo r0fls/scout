@@ -15,17 +15,17 @@ class Monitor(object):
         '''
         Constructor
         '''
-        self.log_file_location = log_file_location
-        self.parser = apachelog.parser(apachelog.formats[log_format])
-        self.period = period
-        self.alert_period = alert_period
-        self.alert_threshold = alert_threshold
-        self.max_frequent_sections = max_frequent_sections
+        self._log_file_location = log_file_location
+        self._parser = apachelog.parser(apachelog.formats[log_format])
+        self._period = period
+        self._alert_period = alert_period
+        self._alert_threshold = alert_threshold
+        self._max_frequent_sections = max_frequent_sections
 
-        self.log_file_position = 0
-        self.log_cache = []
-        self.alert_state = False
-        self.alerts = []
+        self._log_file_position = 0
+        self._log_cache = []
+        self._alert_state = False
+        self._alerts = []
 
     def run_monitor(self):
         current_time = datetime.now()
@@ -35,15 +35,15 @@ class Monitor(object):
 
     def _update_log_data(self, current_time):
         #Load any new data from access log file
-        with open(self.log_file_location, 'r') as log_file:
-            log_file.seek(self.log_file_position)
+        with open(self._log_file_location, 'r') as log_file:
+            log_file.seek(self._log_file_position)
             for line in log_file.readlines():
-                log = self.parser.parse(line)
+                log = self._parser.parse(line)
                 log_entry = LogEntry(self._get_timestamp(log), self._get_section(log))
-                self.log_cache.append(log_entry)
-            self.log_file_position = log_file.tell()
+                self._log_cache.append(log_entry)
+            self._log_file_position = log_file.tell()
         #Remove any entries from cache that are out of the alerting period
-        self.log_cache = [entry for entry in self.log_cache if self._within_alert_period(entry.timestamp, current_time)]
+        self._log_cache = [entry for entry in self._log_cache if self._within_alert_period(entry.timestamp, current_time)]
 
     def _get_timestamp(self, log_entry):
         return datetime.strptime(log_entry['%t'], LOG_TIMESTAMP_FORMAT)
@@ -59,31 +59,31 @@ class Monitor(object):
         return path_components[1]
 
     def _within_alert_period(self, timestamp, current_time):
-        return current_time - timestamp < timedelta(minutes=self.alert_period)
+        return current_time - timestamp < timedelta(minutes=self._alert_period)
 
     def _check_alert_state(self, current_time):
-        if len(self.log_cache) >= self.alert_threshold:
-            if not self.alert_state:
-                message = "High traffic generated an alert - hits = %d, triggered at %s" % (len(self.log_cache), current_time)
+        if len(self._log_cache) >= self._alert_threshold:
+            if not self._alert_state:
+                message = "High traffic generated an alert - hits = %d, triggered at %s" % (len(self._log_cache), current_time)
                 self._add_alert(message)
-                self.alert_state = True
-        elif self.alert_state:
-            self.alert_state = False
+                self._alert_state = True
+        elif self._alert_state:
+            self._alert_state = False
             self._add_alert("Traffic alert recovered at %s" % current_time)
 
     def _add_alert(self, alert):
-        self.alerts.append(alert)
+        self._alerts.append(alert)
 
     def _display_frequent_sections(self, current_time):
-        sections = [log_entry.section for log_entry in self.log_cache if self._within_polling_period(log_entry.timestamp, current_time)]
-        most_frequent_sections = Counter(sections).most_common(self.max_frequent_sections)
+        sections = [log_entry.section for log_entry in self._log_cache if self._within_polling_period(log_entry.timestamp, current_time)]
+        most_frequent_sections = Counter(sections).most_common(self._max_frequent_sections)
         print "Most Frequent Sections"
         for section in most_frequent_sections:
             print "%s: %s" % section
         print "......."
 
     def _within_polling_period(self, timestamp, current_time):
-        return current_time - timestamp < timedelta(seconds=self.period)
+        return current_time - timestamp < timedelta(seconds=self._period)
 
 
 class LogEntry(object):
