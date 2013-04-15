@@ -19,13 +19,18 @@ ${alert}
 % endif
 Number of requests: ${num_requests}
 
-Frequently Requested Sections this polling period:
+Most frequently requested sections this polling period:
 % for section, requests in sections:
     % if section is None:
 No Section: ${requests}
     % else:
 ${section}: ${requests}
     % endif
+% endfor
+
+Most frequently returned status codes this polling period:
+% for response_code, requests in response_codes:
+${response_code}: ${requests}
 % endfor
 =======================================================
 
@@ -58,8 +63,9 @@ class Monitor(object):
         self._update_log_data(current_time)
         self._check_alert_state(current_time)
         log_entries = self._get_polling_period_entries(current_time)
-        sections = self._get_frequent_sections(current_time, log_entries)
-        self._display_console(current_time, self._alerts, len(log_entries), sections)
+        sections = self._get_frequent_sections(log_entries)
+        response_codes = self._get_frequent_response_codes(log_entries)
+        self._display_console(current_time, self._alerts, len(log_entries), sections, response_codes)
 
     def _update_log_data(self, current_time):
         #Load any new data from access log file
@@ -67,7 +73,9 @@ class Monitor(object):
             log_file.seek(self._log_file_position)
             for line in log_file.readlines():
                 log_line = self._parser.parse(line)
-                log_entry = LogEntry(self._get_timestamp(log_line), self._get_section(log_line))
+                log_entry = LogEntry(self._get_timestamp(log_line),
+                                     self._get_section(log_line),
+                                     self._get_response_code(log_line))
                 self._log_cache.append(log_entry)
             self._log_file_position = log_file.tell()
         #Remove any entries from cache that are out of the alerting period
@@ -85,6 +93,9 @@ class Monitor(object):
             return None
         #return component after first /
         return path_components[1]
+
+    def _get_response_code(self, log_line):
+        return log_line['%>s']
 
     def _within_alert_period(self, timestamp, current_time):
         return current_time - timestamp < timedelta(minutes=self._alert_period)
@@ -108,15 +119,20 @@ class Monitor(object):
     def _within_polling_period(self, timestamp, current_time):
         return current_time - timestamp < timedelta(seconds=self._period)
 
-    def _get_frequent_sections(self, current_time, log_entries):
+    def _get_frequent_sections(self, log_entries):
         sections = [log_entry.section for log_entry in log_entries]
         return Counter(sections).most_common(self._max_frequent_sections)
 
-    def _display_console(self, current_time, alerts, num_requests, sections):
+    def _get_frequent_response_codes(self, log_entries):
+        response_codes = [log_entry.response_code for log_entry in log_entries]
+        return Counter(response_codes).most_common()
+
+    def _display_console(self, current_time, alerts, num_requests, sections, response_codes):
         print Template(CONSOLE_OUTPUT_TEMPLATE).render(timestamp=current_time,
                                                        alerts=alerts,
                                                        num_requests=num_requests,
-                                                       sections=sections)
+                                                       sections=sections,
+                                                       response_codes=response_codes)
 
 
 class LogEntry(object):
@@ -124,9 +140,10 @@ class LogEntry(object):
     Contains an entry from a log file
     '''
 
-    def __init__(self, timestamp, section):
+    def __init__(self, timestamp, section, response_code):
         self._timestamp = timestamp
         self._section = section
+        self._response_code = response_code
 
     @property
     def timestamp(self):
@@ -135,3 +152,7 @@ class LogEntry(object):
     @property
     def section(self):
         return self._section
+
+    @property
+    def response_code(self):
+        return self._response_code
