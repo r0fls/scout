@@ -17,6 +17,8 @@ ${alert}
     % endfor
 =======================================================
 % endif
+Number of requests: ${num_requests}
+
 Frequently Requested Sections this polling period:
 % for section, requests in sections:
     % if section is None:
@@ -55,8 +57,9 @@ class Monitor(object):
         current_time = datetime.now()
         self._update_log_data(current_time)
         self._check_alert_state(current_time)
-        sections = self._get_frequent_sections(current_time)
-        self._display_console(current_time, self._alerts, sections)
+        log_entries = self._get_polling_period_entries(current_time)
+        sections = self._get_frequent_sections(current_time, log_entries)
+        self._display_console(current_time, self._alerts, len(log_entries), sections)
 
     def _update_log_data(self, current_time):
         #Load any new data from access log file
@@ -99,16 +102,20 @@ class Monitor(object):
     def _add_alert(self, alert):
         self._alerts.append(alert)
 
-    def _get_frequent_sections(self, current_time):
-        sections = [log_entry.section for log_entry in self._log_cache if self._within_polling_period(log_entry.timestamp, current_time)]
-        return Counter(sections).most_common(self._max_frequent_sections)
+    def _get_polling_period_entries(self, current_time):
+        return [log_entry for log_entry in self._log_cache if self._within_polling_period(log_entry.timestamp, current_time)]
 
     def _within_polling_period(self, timestamp, current_time):
         return current_time - timestamp < timedelta(seconds=self._period)
 
-    def _display_console(self, current_time, alerts, sections):
+    def _get_frequent_sections(self, current_time, log_entries):
+        sections = [log_entry.section for log_entry in log_entries]
+        return Counter(sections).most_common(self._max_frequent_sections)
+
+    def _display_console(self, current_time, alerts, num_requests, sections):
         print Template(CONSOLE_OUTPUT_TEMPLATE).render(timestamp=current_time,
                                                        alerts=alerts,
+                                                       num_requests=num_requests,
                                                        sections=sections)
 
 
