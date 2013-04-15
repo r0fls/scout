@@ -16,14 +16,22 @@ class Monitor(object):
         Constructor
         '''
         self.log_file_location = log_file_location
-        self.log_file_position = 0
-        self.log_cache = []
         self.parser = apachelog.parser(apachelog.formats[log_format])
         self.period = period
         self.alert_period = alert_period
         self.alert_threshold = alert_threshold
-        self.alert_state = False
         self.max_frequent_sections = max_frequent_sections
+
+        self.log_file_position = 0
+        self.log_cache = []
+        self.alert_state = False
+        self.alerts = []
+
+    def run_monitor(self):
+        current_time = datetime.now()
+        self._update_log_data(current_time)
+        self._check_alert_state(current_time)
+        self._display_frequent_sections(current_time)
 
     def _get_section(self, log_entry):
         request = log_entry['%r']
@@ -38,33 +46,38 @@ class Monitor(object):
     def _get_timestamp(self, log_entry):
         return datetime.strptime(log_entry['%t'], LOG_TIMESTAMP_FORMAT)
 
-    def _within_alert_period(self, timestamp):
-        return datetime.now() - timestamp < timedelta(minutes=self.alert_period)
+    def _within_alert_period(self, timestamp, current_time):
+        return current_time - timestamp < timedelta(minutes=self.alert_period)
 
-    def _check_alert_state(self):
-        self.log_cache = [entry for entry in self.log_cache if self._within_alert_period(entry[0])]
-        if len(self.log_cache) > self.alert_threshold:
-            print "ALERT!!!! %d requests in %d minutes" % len(self.log_cache), self.alert_period
-            self.alert_state = True
+    def _check_alert_state(self, current_time):
+        if len(self.log_cache) >= self.alert_threshold:
+            if not self.alert_state:
+                message = "High traffic generated an alert - hits = %d, triggered at %s" % (len(self.log_cache), current_time)
+                self._add_alert(message)
+                self.alert_state = True
         elif self.alert_state:
             self.alert_state = False
-            print "Alert recovered"
+            self._add_alert("Traffic alert recovered at %s" % current_time)
 
-    def run_monitor(self):
+    def _add_alert(self, alert):
+        self.alerts.append(alert)
+
+    def _update_log_data(self, current_time):
+        #Load any new data from access log file
         with open(self.log_file_location, 'r') as log_file:
             log_file.seek(self.log_file_position)
             for line in log_file.readlines():
                 log_entry = self.parser.parse(line)
                 self.log_cache.append((self._get_timestamp(log_entry), self._get_section(log_entry)))
             self.log_file_position = log_file.tell()
-        self._check_alert_state()
-        self._display_frequent_sections()
+        #Remove any entries from cache that are out of the alerting period
+        self.log_cache = [entry for entry in self.log_cache if self._within_alert_period(entry[0], current_time)]
 
-    def _within_polling_period(self, timestamp):
-        return datetime.now() - timestamp < timedelta(seconds=self.period)
+    def _within_polling_period(self, timestamp, current_time):
+        return current_time - timestamp < timedelta(seconds=self.period)
 
-    def _display_frequent_sections(self):
-        sections = [log_entry[1] for log_entry in self.log_cache if self._within_polling_period(log_entry[0])]
+    def _display_frequent_sections(self, current_time):
+        sections = [log_entry[1] for log_entry in self.log_cache if self._within_polling_period(log_entry[0], current_time)]
         most_frequent_sections = Counter(sections).most_common(self.max_frequent_sections)
         print "Most Frequent Sections"
         for section in most_frequent_sections:
