@@ -63,18 +63,18 @@ class Monitor(object):
         with open(self._log_file_location, 'r') as log_file:
             log_file.seek(self._log_file_position)
             for line in log_file.readlines():
-                log = self._parser.parse(line)
-                log_entry = LogEntry(self._get_timestamp(log), self._get_section(log))
+                log_line = self._parser.parse(line)
+                log_entry = LogEntry(self._get_timestamp(log_line), self._get_section(log_line))
                 self._log_cache.append(log_entry)
             self._log_file_position = log_file.tell()
         #Remove any entries from cache that are out of the alerting period
         self._log_cache = [entry for entry in self._log_cache if self._within_alert_period(entry.timestamp, current_time)]
 
-    def _get_timestamp(self, log_entry):
-        return datetime.strptime(log_entry['%t'], LOG_TIMESTAMP_FORMAT)
+    def _get_timestamp(self, log_line):
+        return datetime.strptime(log_line['%t'], LOG_TIMESTAMP_FORMAT)
 
-    def _get_section(self, log_entry):
-        request = log_entry['%r']
+    def _get_section(self, log_line):
+        request = log_line['%r']
         url = request.split()[1]
         path_components = urlparse(url).path.split('/')
         if(len(path_components) < 3):
